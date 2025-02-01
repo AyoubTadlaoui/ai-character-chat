@@ -7,12 +7,12 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Hello World</Text>
+      <Text style={styles.text}>Menu</Text>
       <TouchableOpacity 
         style={styles.button}
         onPress={() => router.push('/select-celebrity')}
       >
-        <Text style={styles.buttonText}>Go to Celebrity Chat</Text>
+        <Text style={styles.buttonText}>Go to Celebrity Selection</Text>
       </TouchableOpacity>
     </View>
   );

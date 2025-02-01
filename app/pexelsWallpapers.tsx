@@ -15,13 +15,11 @@ import Animated, {
   Extrapolate,
 } from "react-native-reanimated";
 
-const uri =
-  "https://api.pexels.com/v1/search?query=mobile+wallpaper&orientation=portrait";
-const API_KEY =
-  "WRQlwljauExAv5tRLsbmlxGNR3MJALFqyL5IJKrsjDwWdthw4jCqmzd3";
+// Replace with your own key
+const API_KEY = "WRQlwljauExAv5tRLsbmlxGNR3MJALFqyL5IJKrsjDwWdthw4jCqmzd3";
 
 const { width } = Dimensions.get("screen");
-const _imageWidth = width * 0.7;
+const _imageWidth = width * 0.8;
 const _imageHeight = _imageWidth * 1.76;
 const _spacing = 12;
 
@@ -49,12 +47,62 @@ type Photos = {
   alt: string;
 };
 
-type SearchPayload = {
-  total_results: number;
-  page: number;
-  per_page: number;
+type ThreePhotosPayload = {
   photos: Photos[];
 };
+
+// ---------- A. Photo IDs you want precisely ----------
+const chefIDs = [1267320, 2977514, 5779787];   // “chef” images
+const spaceIDs = [586031, 586071, 586030];    // “SpaceX” images
+
+// ---------- B. Helper: Fetch single photo by ID ----------
+async function fetchPhotoByID(photoID: number): Promise<Photos> {
+  // Example: GET /v1/photos/586031
+  const url = `https://api.pexels.com/v1/photos/${photoID}`;
+  const res = await fetch(url, {
+    headers: { Authorization: API_KEY },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch photo ID: ${photoID}`);
+  }
+  const data = await res.json();
+  // data is a single photo object
+  return data; // matches the Photos type
+}
+
+// ---------- C. Helper: Fetch one random "luxury" image ----------
+async function fetchRandomLuxury(): Promise<Photos> {
+  // We fetch 5 "luxury" images, pick one
+  const url = `https://api.pexels.com/v1/search?query=luxury&orientation=portrait&per_page=5`;
+  const res = await fetch(url, {
+    headers: { Authorization: API_KEY },
+  });
+  if (!res.ok) {
+    throw new Error("Failed to fetch 'luxury' photos");
+  }
+  const result = await res.json(); // {photos: Photos[]}
+  const randomIndex = Math.floor(Math.random() * result.photos.length);
+  return result.photos[randomIndex]; // Return 1 random photo
+}
+
+// ---------- D. Main fetch function ----------
+async function fetchThreePhotos(): Promise<ThreePhotosPayload> {
+  // 1) Randomly pick from chefIDs
+  const randomChefID = chefIDs[Math.floor(Math.random() * chefIDs.length)];
+  // 2) Fetch one random "luxury" from the search
+  // 3) Randomly pick from spaceIDs
+  const randomSpaceID = spaceIDs[Math.floor(Math.random() * spaceIDs.length)];
+
+  // Perform these in parallel if you like:
+  const [chefPhoto, luxuryPhoto, spacePhoto] = await Promise.all([
+    fetchPhotoByID(randomChefID),
+    fetchRandomLuxury(),
+    fetchPhotoByID(randomSpaceID),
+  ]);
+
+  // Return them in that specific order [chef, luxury, space]
+  return { photos: [chefPhoto, luxuryPhoto, spacePhoto] };
+}
 
 // ------ BackdropPhoto Component ------
 function BackdropPhoto({
@@ -71,7 +119,8 @@ function BackdropPhoto({
       opacity: interpolate(
         scrollX.value,
         [index - 1, index, index + 1],
-        [0, 1, 0]
+        [0, 1, 0],
+        Extrapolate.CLAMP
       ),
     };
   });
@@ -81,6 +130,7 @@ function BackdropPhoto({
       source={{ uri: photo.src.large }}
       style={[StyleSheet.absoluteFillObject, stylz]}
       blurRadius={50}
+      resizeMode="cover"
     />
   );
 }
@@ -96,7 +146,6 @@ function Photo({
   scrollX: SharedValue<number>;
 }) {
   const stylz = useAnimatedStyle(() => {
-    // Interpolate scale and rotation based on current scroll position
     const scale = interpolate(
       scrollX.value,
       [index - 1, index, index + 1],
@@ -111,10 +160,7 @@ function Photo({
     );
 
     return {
-      transform: [
-        { scale },
-        { rotate: `${rotate}deg` },
-      ],
+      transform: [{ scale }, { rotate: `${rotate}deg` }],
     };
   });
 
@@ -131,6 +177,7 @@ function Photo({
         source={{ uri: item.src.large }}
         style={[{ flex: 1 }, stylz]}
         resizeMode="cover"
+   
       />
     </View>
   );
@@ -138,28 +185,22 @@ function Photo({
 
 // ------ Main Component ------
 export function PexelsWallpapers() {
-  // -- React Query call --
-  const { data, isLoading } = useQuery<SearchPayload>({
-    queryKey: ["Wallpapers"],
-    queryFn: async () => {
-      const res = await fetch(uri, {
-        headers: {
-          Authorization: API_KEY,
-        },
-      });
-      return res.json();
-    },
+  const { data, isLoading, isError, refetch } = useQuery<ThreePhotosPayload>({
+    queryKey: ["Wallpapers", "chef-luxury-space"],
+    queryFn: fetchThreePhotos,
+    // You can disable caching if you want a brand-new set every time
+    // staleTime: 0,
+    // cacheTime: 0,
   });
 
-  // -- Reanimated shared value & scroll handler --
+  // Reanimated shared value & scroll handler
   const scrollX = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((e) => {
-    // Convert scroll offset into a 'page' index
     scrollX.value = e.contentOffset.x / (_imageWidth + _spacing);
   });
 
-  // -- Loading State --
-  if (isLoading || !data) {
+  // Loading / Error
+  if (isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" />
@@ -167,7 +208,15 @@ export function PexelsWallpapers() {
     );
   }
 
-  // -- Render FlatList with Reanimated --
+  if (isError || !data) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="red" />
+      </View>
+    );
+  }
+
+  // data.photos => [ chefPhoto, luxuryPhoto, spacePhoto ]
   return (
     <View style={styles.container}>
       {/* Backdrop Layer */}
@@ -188,10 +237,8 @@ export function PexelsWallpapers() {
         keyExtractor={(item) => String(item.id)}
         horizontal
         style={{ flexGrow: 0 }}
-        // Animated scroll
         onScroll={onScroll}
         scrollEventThrottle={16}
-        // Snap
         snapToInterval={_imageWidth + _spacing}
         decelerationRate="fast"
         contentContainerStyle={{
