@@ -5,10 +5,14 @@ import { PexelsWallpapers } from "./pexelsWallpapers";
 
 const queryClient = new QueryClient();
 
- export default function Select() {
-    return <QueryClientProvider client = {queryClient}>
-        <PexelsWallpapers/>
-     </QueryClientProvider>;
+export default function Select() {
+  return (
+    <View style={styles.container}>
+      <QueryClientProvider client={queryClient}>
+        <PexelsWallpapers />
+      </QueryClientProvider>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create ({

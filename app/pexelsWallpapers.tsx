@@ -14,6 +14,7 @@ import Animated, {
   useSharedValue,
   Extrapolate,
 } from "react-native-reanimated";
+import { Text } from 'react-native';  // Add Text import
 
 // Replace with your own key
 const API_KEY = "WRQlwljauExAv5tRLsbmlxGNR3MJALFqyL5IJKrsjDwWdthw4jCqmzd3";
@@ -129,7 +130,7 @@ function BackdropPhoto({
     <Animated.Image
       source={{ uri: photo.src.large }}
       style={[StyleSheet.absoluteFillObject, stylz]}
-      blurRadius={50}
+      blurRadius={10}
       resizeMode="cover"
     />
   );
@@ -177,8 +178,24 @@ function Photo({
         source={{ uri: item.src.large }}
         style={[{ flex: 1 }, stylz]}
         resizeMode="cover"
-   
       />
+      <View style={{
+        position: 'absolute',
+        top: 0, // Overlay from the top
+        left: 0,
+        right: 0,
+        padding: 80,
+        backgroundColor: 'rgba(255, 255, 255, 0.75)',
+        borderBottomLeftRadius: 30, // Increased border radius for a more curved effect
+        borderBottomRightRadius: 30, 
+      }}>
+        <Text style={{ color: '#000', fontSize: 16, fontWeight: 'bold' }}>
+          {item.photographer}
+        </Text>
+        <Text style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
+          {item.alt || 'Beautiful photograph'}
+        </Text>
+      </View>
     </View>
   );
 }
